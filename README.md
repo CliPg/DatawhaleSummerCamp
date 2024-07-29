@@ -98,7 +98,13 @@ day,time,clearing price （CNY/MWh）
 
 分析数据时，可以先从整体观察分析（绘制变化曲线），观察是否有异常点，异常点通常是解决问题的关键，以便进一步分析。
 
-![img](blob:https://datawhaler.feishu.cn/da7919eb-4175-4041-a081-94ef023948eb)
+
+
+![fig1](./images/Figure_1.png)
+
+上图为各个区间蓄电量对应的数量，发现基本符合正态分布
+
+
 
 
 
