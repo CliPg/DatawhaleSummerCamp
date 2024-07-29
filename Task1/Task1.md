@@ -26,15 +26,17 @@
 
 #### 数据集分析
 
-```shell
-demand                         #需电量
-clearing price (CNY/MWh)       #市场出清价格(元/兆瓦时)
-unit ID                        #构造出的发电机组的ID
-Capacity（MW）                 #装机容量
-utilization hour (h)           #电厂的年平均运行小时数
-coal consumption (g coal/KWh)  #供电煤耗
-power consumption rate (%)     #发电厂的利用率，指电厂单位时间内耗电量与发电量的百分比
-```
+| 变量名                        | 含义                                                   |
+| ----------------------------- | ------------------------------------------------------ |
+| demand                        | 需电量                                                 |
+| clearing price (CNY/MWh)      | 市场出清价格(元/兆瓦时)                                |
+| unit ID                       | 构造出的发电机组的ID                                   |
+| Capacity(MW)                  | 装机容量                                               |
+| utilization hour (h)          | 电厂的年平均运行小时数                                 |
+| coal consumption (g coal/KWh) | 供电煤耗                                               |
+| power consumption rate (%)    | 发电厂的利用率，指电厂单位时间内耗电量与发电量的百分比 |
+
+
 
 
 
