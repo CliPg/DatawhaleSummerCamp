@@ -45,7 +45,7 @@ train_data["weekday"] = electricity_price.index.weekday
 train_data["is_windy_season"] = electricity_price.index.month.isin([1, 2, 3, 4, 5, 9, 10, 11, 12])
 
 # 根据小时信息，判断是否为低谷时段（10-15点），创建布尔型 "is_valley" 列
-train_data["is_valley"] = electricity_price.index.hour.isin([3,4,10, 11, 12, 13, 14, 15])
+train_data["is_valley"] = electricity_price.index.hour.isin([3, 4, 10, 11, 12, 13, 14, 15])
 
 # 提取时间索引的季度信息，并添加到训练数据中，创建 "quarter" 列
 train_data["quarter"] = electricity_price.index.quarter
@@ -301,7 +301,6 @@ y_train = train_data.iloc[:train_length][["price"]]
 
 from sklearn.linear_model import LinearRegression
 from lightgbm import LGBMRegressor
-import xgboost as xgb
 
 # 创建 LGBMRegressor 模型对象，设置参数
 # num_leaves：树的叶子数，控制模型复杂度
@@ -332,24 +331,11 @@ lgb_pred = lgb_model.predict(X_test)
 # 返回预测的目标值，并将结果展平为一维数组
 linear_pred = linear_model.predict(X_test[["demand"]]).flatten()
 
-# 使用训练集数据训练 XGBoost 模型
-xgb_model = xgb.XGBRegressor(
-    max_depth=3, 
-    learning_rate=0.1, 
-    n_estimators=100, 
-    objective='reg:squarederror', 
-    verbosity=0
-)
-xgb_model.fit(X_train, y_train)
-
-xgb_pred = xgb_model.predict(X_test)
-
-
 # 简单求均值
-y_pred = (lgb_pred+linear_pred+xgb_pred)/3
+y_pred = (lgb_pred+linear_pred)/2
 y_pred *= 0.95  # 进行少量修正
 
 sample_submit["clearing price (CNY/MWh)"] = y_pred
 sample_submit.head()
 
-sample_submit.to_csv("submit7.csv", index=False)
+sample_submit.to_csv("submit6.csv", index=False)

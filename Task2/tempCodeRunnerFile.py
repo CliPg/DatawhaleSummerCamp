@@ -1,1 +1,0 @@
-clearing price (CNY/MWh)
