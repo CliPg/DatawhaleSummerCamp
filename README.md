@@ -337,7 +337,7 @@ day,time,clearing price （CNY/MWh）
 
 ##### 交互地图
 
-~~离散方格、连续方格、网络、甚至是下载的RPG地图……~~ 这里有设置地图。
+~~离散方格、连续方格、网络、甚至是下载的RPG地图……~~ 这里没有设置地图。
 
 ##### 数据收集器
 
@@ -361,6 +361,65 @@ day,time,clearing price （CNY/MWh）
 
 ## Task3
 
+### LightGBM + Linear
+
+#### 特征工程
+
+由Task2的EDA分析，这里提取了如下特征
+
+```python
+# 提取时间索引的小时信息，并添加到训练数据中，创建 "hour" 列
+train_data["hour"] = electricity_price.index.hour
+
+# 提取时间索引的日期信息，并添加到训练数据中，创建 "day" 列
+train_data["day"] = electricity_price.index.day
+
+# 提取时间索引的月份信息，并添加到训练数据中，创建 "month" 列
+train_data["month"] = electricity_price.index.month
+
+# 提取时间索引的年份信息，并添加到训练数据中，创建 "year" 列
+train_data["year"] = electricity_price.index.year
+
+# 提取时间索引的星期信息，并添加到训练数据中，创建 "weekday" 列
+train_data["weekday"] = electricity_price.index.weekday
+
+# 根据月份信息，判断是否为风季（1-5月和9-12月），创建布尔型 "is_windy_season" 列
+train_data["is_windy_season"] = electricity_price.index.month.isin([1, 2, 3, 4, 5, 9, 10, 11, 12])
+
+# 根据小时信息，判断是否为低谷时段（10-15点），创建布尔型 "is_valley" 列
+train_data["is_valley"] = electricity_price.index.hour.isin([3, 4, 5, 10, 11, 12, 13, 14, 15])
+
+# 提取时间索引的季度信息，并添加到训练数据中，创建 "quarter" 列
+train_data["quarter"] = electricity_price.index.quarter
+
+# 判断训练数据的索引是否在春节日期列表中，生成布尔型列 "is_spring_festival"
+train_data["is_spring_festival"] = train_data.index.isin(spring_festivals)
+
+# 判断训练数据的索引是否在劳动节日期列表中，生成布尔型列 "is_labor"
+train_data["is_labor"] = train_data.index.isin(labor)
+
+# 判断训练数据的索引是否在清明节日期列表中，生成布尔型列 "is_labor"
+train_data["is_qingming"] = train_data.index.isin(qingming)
+```
+
+
+
+#### 模型训练
+
+通过LightGBM和Linear模型，并加权得到预测值
+
+（通过多次提交，发现线性回归模型的效果会更好点）
+
+```python
+# 简单求均值
+y_pred = lgb_pred * 0.3 + linear_pred*0.7
+y_pred *= 0.95  # 进行少量修正
+sample_submit["clearing price (CNY/MWh)"] = y_pred
+sample_submit.to_csv("submit.csv", index=False)
+```
+
+
+
 ### ABM报价策略优化
 
 #### 报价机制
@@ -377,15 +436,7 @@ day,time,clearing price （CNY/MWh）
 
 
 
-
-
-
-
-submit5 是在原基础，加了清明节，并延长了假期时间，证明有用
-
-
-
-task3我想按照自己的思路建模
+我的思路
 
 构建环境
 
@@ -415,6 +466,33 @@ task3我想按照自己的思路建模
 
   （降价效果要叠加）
 
-
+对于环境和agent的定义见代码
 
 目前拟合程度还不是很好
+
+训练发现，预测值会出现连续大量相同的出清价格，可能是demand接近，环境和agent的定义不够完善，效果明显不如直接通过demand预测
+
+
+
+
+
+### 历次提交
+
+| subimit | 分数       | 改进点                                                       | 自测mse            |
+| ------- | ---------- | ------------------------------------------------------------ | ------------------ |
+| 1       | 12939.3371 | 按照b1直接跑                                                 |                    |
+| 2       | 11302.0459 | 按照b2直接跑                                                 |                    |
+| 3       | 11788.2103 | b2基础，调高了lgbm模型参数，节假日下午的数据调到了-80，加入了清明节 |                    |
+| 4       | 11488.2482 | b2基础，节假日下午的数据调到了-80，加入了清明节              |                    |
+| 5       | 11134.8532 | b2基础，加入了清明节，假期参数延长                           | 18743.691623601575 |
+| 6       | 11337.4022 | 不记得了                                                     |                    |
+| 7       | 11488.7718 | b2基础，引入xgboost                                          |                    |
+| 8       | 15292.3279 | 加入国庆节,将lgbt调到1                                       | 8395.473726113192  |
+| 9       | 11151.0948 | b2基础，加入国庆节                                           |                    |
+| 10      | 10957.9872 | b2基础，调lgbt为0.4                                          |                    |
+| 11      | 11813.1331 | b2基础，调lgbt为0                                            |                    |
+| 12      | 10927.6409 | b2基础，调lgbt为0.3                                          |                    |
+|         |            |                                                              |                    |
+
+~~自测mse貌似不准~~
+

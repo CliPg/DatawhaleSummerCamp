@@ -1,12 +1,13 @@
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 from lightgbm import LGBMRegressor
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error
 
 # 读取数据
-electricity_price = pd.read_csv('datas/electricity_price_parsed_new.csv', parse_dates=["timestamp"], index_col=0)
+electricity_price = pd.read_csv('datas/electricity_price_parsed.csv', parse_dates=["timestamp"], index_col=0)
 unit_df = pd.read_csv('Task1/data/new_unit.csv')
 
 # 提取时间特征
@@ -121,11 +122,10 @@ class ElectricityMarketModel:
     
     def run_simulation(self):
         results = []
+        # 用于保存每次竞争的详细信息
+        competition_details = []
+        
         for index, row in self.electricity_price_df.iterrows():
-            # if 'is_spring_festival' not in row or 'is_labor' not in row or 'is_qingming' not in row or 'date' not in row:
-            #     print(f"Missing column in row {index}")
-            #     continue
-            
             environment = Environment(
                 row['demand'],
                 row['is_windy_season'],
@@ -133,7 +133,7 @@ class ElectricityMarketModel:
                 row['is_spring_festival'],
                 row['is_labor'],
                 row['is_qingming'],
-                pd.to_datetime(row['date'])
+                pd.to_datetime(row.name)  # 使用索引名称作为日期
             )
 
             for agent in self.agents:
@@ -144,80 +144,39 @@ class ElectricityMarketModel:
             clearing_price = successful_agents[-1].bid_price if successful_agents else np.nan
             results.append(clearing_price)
 
+            # 记录每个发电厂的竞标价格
+            competition_details.append({
+                'time': row.name,
+                'demand': row['demand'],
+                'clearing_price': clearing_price,
+                'agents': [(agent.agent_id, agent.bid_price, agent.compete_success) for agent in self.agents]
+            })
+
         self.electricity_price_df['predicted_price'] = results
+        self.competition_details = competition_details  # 保存竞争细节供后续可视化使用
 
 # 运行模型
 model = ElectricityMarketModel(train_data, unit_df)
 model.run_simulation()
 
+# 可视化某一次竞争的图
+def visualize_competition(competition_details, timestamp):
+    # 查找特定时间点的竞争详情
+    details = next((item for item in competition_details if item['time'] == timestamp), None)
+    if not details:
+        print(f"No competition details found for timestamp: {timestamp}")
+        return
 
-# 保存预测结果
-train_data['predicted_price'] = model.electricity_price_df['predicted_price']
+    agents = details['agents']
+    agent_ids, bid_prices, compete_success = zip(*agents)
 
-# 读取保存的ABM模型预测结果和实际价格
-actual_prices = pd.read_csv('datas/electricity_price_parsed.csv', parse_dates=["timestamp"], index_col=0)
+    plt.figure(figsize=(12, 6))
+    plt.bar(agent_ids, bid_prices, color=['green' if success else 'red' for success in compete_success])
+    plt.xlabel('Power Plant ID')
+    plt.ylabel('Bid Price')
+    plt.title(f'Competition at {timestamp}')
+    plt.xticks(rotation=90)
+    plt.show()
 
-# 合并数据
-data = train_data.merge(actual_prices[['clearing price (CNY/MWh)']], left_index=True, right_index=True, suffixes=('_pred', '_actual'))
-
-
-# 分离特征和目标变量
-X = data[['predicted_price']]
-y = data['clearing price (CNY/MWh)_actual']
-
-
-predicted_price_non_null_count = data['predicted_price'].notnull().sum()
-clearing_price_actual_non_null_count = data['clearing price (CNY/MWh)_actual'].notnull().sum()
-
-print(f"Number of non-null rows in 'predicted_price': {predicted_price_non_null_count}")
-print(f"Number of non-null rows in 'clearing price (CNY/MWh)_actual': {clearing_price_actual_non_null_count}")
-
-
-predicted_price_total_count = len(data['predicted_price'])
-clearing_price_actual_total_count = len(data['clearing price (CNY/MWh)_actual'])
-
-print(f"Total number of rows in 'predicted_price': {predicted_price_total_count}")
-print(f"Total number of rows in 'clearing price (CNY/MWh)_actual': {clearing_price_actual_total_count}")
-
-
-# 拆分训练集和测试集
-
-train_size = 55392
-X_train = data.iloc[:train_size][['predicted_price']]
-y_train = data.iloc[:train_size]['clearing price (CNY/MWh)_actual']
-X_test = data.iloc[:train_size][['predicted_price']]
-#y_test = data.iloc[train_size:]['clearing price (CNY/MWh)_actual']
-
-# 线性回归模型
-lin_reg = LinearRegression()
-lin_reg.fit(X_train, y_train)
-#y_pred_lin = lin_reg.predict(X_test)
-
-# LightGBM模型
-lgb_reg = LGBMRegressor(num_leaves=2**5-1, n_estimators=300, verbose=-1)
-lgb_reg.fit(X_train, y_train)
-
-
-y_pred = lgb_reg.predict(X_test)
-
-
-
-# 将预测结果保存到数据框中
-#data['average'] = lgb_reg.predict(X_test)
-
-# 保存结果
-#data.to_csv('datas/abmtest.csv', index=False)
-
-abmtest = pd.read_excel("datas/abm_test.csv.xlsx")
-abmtest['clearing price (CNY/MWh)'] = lgb_reg.predict(X_test)
-abmtest.to_excel("datas/new_test_score.xlsx")
-
-actual_data = pd.read_csv("datas/test_score.csv", parse_dates=["timestamp"], index_col=0)
-
-# 提取预测值和实际值
-
-y_actual = actual_data["clearing price (CNY/MWh)"]
-
-# 计算 MSE
-mse = mean_squared_error(y_actual, y_pred)
-print(f"Mean Squared Error (MSE): {mse}")
+# 可视化某个时间点的竞争情况
+visualize_competition(model.competition_details, pd.Timestamp('2024-01-01 10:00:00'))
